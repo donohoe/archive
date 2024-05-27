@@ -1,8 +1,15 @@
-**/.DS_Store
+# Ignore everything
+*
 
-# Ignore all files recursively in the cache directory and its subdirectories
+# But not this directory
+!_archive/
+
+# Ensure everything inside _archive is not ignored
+!_archive/**
+
+# Ignore all files recursively in the cache directory but do not ignore .html files 
 _archive/cache/**
-
-# But do not ignore .html files 
 !_archive/cache/**/*.html
 
+# You know what you did
+**/.DS_Store
