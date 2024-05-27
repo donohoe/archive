@@ -207,7 +207,7 @@ h3 {
 }
 
 #dirs .thumbnail {
-	background-image: url(./_media/icon-folder.svg);
+	background-image: url(./icon-folder.svg);
 	background-repeat: no-repeat;
 	background-position: center;
 }

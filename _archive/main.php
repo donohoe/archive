@@ -5,8 +5,15 @@ date_default_timezone_set('America/New_York');
 class Files {
 
 	public function __construct() {
+
+		$parentDir = dirname(__DIR__);
+		$this->real_base = realpath($parentDir);
+
 		$this->path = $this->getPath();
-		$this->real_base = realpath(__DIR__);
+
+
+		// $this->real_base = realpath(__DIR__);
+
 		$this->approved_extensions = [
 			'txt', 'md', 'pdf',
 			'jpg', 'jpeg', 'gif', 'png', 'svg',
@@ -17,7 +24,7 @@ class Files {
 		];
 
 		$this->thumbnail_supported_extensions = ['png', 'jpg', 'jpeg', 'gif'];
-		$this->thumbnail_dir = '_media/cache';
+		$this->thumbnail_dir = '_archive/cache';
 		$this->thumbnail_width = 360;
 	}
 
@@ -109,10 +116,9 @@ class Files {
 		);
 
 		foreach ($contents as $item) {
-			if ($item === '.' || $item === '..' || strpos($item, '_') === 0) {
+			if ($item === '.' || $item === '..' || strpos($item, '_') === 0 || strpos($item, '.') === 0) {
 				continue;
 			}
-
 			$full_path = $this->path . DIRECTORY_SEPARATOR . $item;
 			if (is_dir($full_path)) {
 				$directories[] = $item;
@@ -177,10 +183,11 @@ class Files {
 
 	private function getPath(){
 		$path = isset($_GET['p']) ? $_GET['p'] : './';
-		$real_base = realpath(__DIR__);
-		$real_path = realpath($path ? $real_base . DIRECTORY_SEPARATOR . $path : $real_base);
+		// $real_base = realpath(__DIR__);
 
-		if ($real_path && $this->is_within_base($real_path, $real_base)) {
+		$real_path = realpath($path ? $this->real_base . DIRECTORY_SEPARATOR . $path : $this->real_base);
+
+		if ($real_path && $this->is_within_base($real_path, $this->real_base)) {
 			return $real_path;
 		} else {
 			return false;
