@@ -3,10 +3,8 @@
 $files = new Files;
 $response = $files->get();
 
-$html_nav = array();
-$html_dir = array();
+$html_dir   = array();
 $html_files = array();
-$html_file_info = array();
 
 ?>
 <!doctype html>
@@ -23,6 +21,7 @@ $html_file_info = array();
 <div id="page">
 	<header>
 	<?php
+		$html_nav = array();
 		if (isset($response['navigation'])) {
 			foreach($response['navigation'] as $item) {
 				if (empty($item['0'])) {
@@ -128,4 +127,3 @@ $html_file_info = array();
 </div>
 </body>
 </html>
-
