@@ -1,0 +1,8 @@
+**/.DS_Store
+
+# Ignore all files recursively in the cache directory and its subdirectories
+_media/cache/**
+
+# But do not ignore .html files 
+!_media/cache/**/*.html
+
