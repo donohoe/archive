@@ -71,6 +71,16 @@ a:visited {
 	/* color: white; */
 }
 
+h1 a,
+a.basic {
+	color: black
+}
+h1 a:hover,
+a.basic:hover {
+	background-color: transparent;
+	color: #666;
+}
+
 #navigation a:last-of-type {
 	font-weight: bold;
 }
@@ -182,6 +192,7 @@ h3 {
 
 #content li a {
 	display: block;
+	position: relative;
 	margin: 0 -1px -1px 0;
 	border-width: 1px;
 	border-color: transparent;
@@ -195,6 +206,10 @@ h3 {
 	text-align: center;
 	display: inline-block;
 	width: 100%;
+}
+
+#content li a:hover, #content li a:focus {
+	background-color: #F6F6F6;
 }
 
 /* Directory */
@@ -257,10 +272,6 @@ h3 {
 	color: #191919;
 	text-decoration: none;
 	outline: none;
-}
-
-#files li a:hover, #files li a:focus {
-	background-color: #F6F6F6;
 }
 
 #files li a:hover .label, 
@@ -405,4 +416,19 @@ video {
 
 .thumbnail.css svg #inner {
 	fill: yellow;
+}
+
+/* Footer */
+
+footer a {
+	color: #aaa;
+}
+
+footer p {
+	border: 0;
+	font-size: 1em;
+	line-height: 1.1;
+	margin: 0;
+	padding: 1em 0;
+	color: #eee;
 }

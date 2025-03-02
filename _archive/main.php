@@ -8,11 +8,7 @@ class Files {
 
 		$parentDir = dirname(__DIR__);
 		$this->real_base = realpath($parentDir);
-
 		$this->path = $this->getPath();
-
-
-		// $this->real_base = realpath(__DIR__);
 
 		$this->approved_extensions = [
 			'txt', 'md', 'pdf',
@@ -132,7 +128,7 @@ class Files {
 
 		foreach ($directories as $directory) {
 			$relative_dir_path = str_replace($this->real_base, '', $this->path . DIRECTORY_SEPARATOR . $directory);
-			$response['dirs'][] = [ $relative_dir_path, $directory ];
+			$response['dirs'][] = [ $relative_dir_path, htmlspecialchars($directory) ];
 		}
 
 		foreach ($files as $file) {
@@ -149,7 +145,7 @@ class Files {
 				}
 
 				$relative_file_path = str_replace($this->real_base, '', $this->path . DIRECTORY_SEPARATOR . $file);
-				$response['files'][] = [ $relative_file_path, $file, $file_extension, $thumbnail_path ];
+				$response['files'][] = [ $relative_file_path, htmlspecialchars($file), $file_extension, $thumbnail_path ];
 			}
 		}
 

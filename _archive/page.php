@@ -6,6 +6,8 @@ $response = $files->get();
 $html_dir   = array();
 $html_files = array();
 
+// print_r($_SERVER);exit;
+
 ?>
 <!doctype html>
 <html lang="en-US" >
@@ -27,11 +29,11 @@ $html_files = array();
 				if (empty($item['0'])) {
 					$item['1'] = 'archive';
 					$html_nav[] = implode("", array(
-						$_SERVER['SERVER_NAME'] . " / <a href=\"./\">{$item['1']}</a>"
+						"<a href=\"/\" class=\"basic\">{$_SERVER['SERVER_NAME']}</a> / <a href=\"./\">{$item['1']}</a>"
 					));
 				} else {
 					$html_nav[] = implode("", array(
-						"<a href=\"?p={$item['0']}\">{$item['1']}</a>"
+						"<a href=\"?p=/{$item['0']}\">{$item['1']}</a>"
 					));
 				}
 			}
@@ -40,7 +42,7 @@ $html_files = array();
 		}
 	?>
 		<div id="navigation">
-			<h1>Archive</h1>
+			<h1><a href="/archive/">Archive</a></h1>
 			<span>Index of</span>&nbsp;<?php print implode(" / ", $html_nav); ?>
 		</div>
 	</header>
@@ -51,10 +53,11 @@ $html_files = array();
 		if (isset($response['dir'])) {
 
 			foreach($response['dir']['dirs'] as $dir) {
+				$custom_class = trim(str_replace(" ", "-", preg_replace("/[^a-zA-Z0-9 ]/", "", $dir['1'])));
 				$html_dir[] = implode("", array(
 					"<li>",
 						"<a href=\"?p={$dir['0']}\" class=\"focusable\">",
-							"<span class=\"thumbnail\"></span>",
+							"<span class=\"thumbnail dir-$custom_class\"></span>",
 							"<span class=\"label line\">{$dir['1']}</span>",
 						"</a>",
 					"</li>",
@@ -119,10 +122,10 @@ $html_files = array();
 ?>
 	</div>
 	<footer>
-		<p><a href="https://github.com/donohoe/archive">Github</a></p>
+		<p><a href="https://github.com/donohoe/archive" title="Archive">Source on Github</a></p>
 	</footer>
 	<div style="display: none;">
-		<?php include './_archive/icon-file-symbol.svg'; ?>
+		<?php include './_archive/icon-files.svg'; ?>
 	</div>
 </div>
 </body>
