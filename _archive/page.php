@@ -1,6 +1,5 @@
 <?php
 
-$files = new Files;
 $response = $files->get();
 
 $html_dir   = array();

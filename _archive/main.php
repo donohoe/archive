@@ -326,6 +326,35 @@ class Files {
 		return json_encode($file, JSON_PRETTY_PRINT);
 	}
 
+	// Streams the resolved file's raw bytes with the right Content-Type, if
+	// it's an approved type. This is the canonical way a file gets served —
+	// the root .htaccess's static-file bypass is only a performance shortcut
+	// for the common case where the requested URL's casing matches the
+	// filesystem exactly; on a case-sensitive server (or if that rule is
+	// ever missing/misconfigured) requests still land here and are served
+	// correctly rather than falling back to an HTML wrapper page. Returns
+	// false (and outputs nothing) if there's nothing appropriate to serve,
+	// so the caller can fall through to rendering the app's own pages.
+	public function serveFile() {
+		if (!is_file($this->current_path)) {
+			return false;
+		}
+
+		$extension = strtolower(pathinfo($this->current_path, PATHINFO_EXTENSION));
+
+		if (!in_array($extension, $this->approved_extensions)) {
+			return false;
+		}
+
+		$mime = ARCHIVE_MIME_TYPES[$extension] ?? 'application/octet-stream';
+
+		header('Content-Type: ' . $mime);
+		header('Content-Length: ' . filesize($this->current_path));
+		readfile($this->current_path);
+
+		return true;
+	}
+
 	/* Images */
 
 	private function createThumbnail($file_path, $thumb_path) {
