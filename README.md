@@ -9,7 +9,9 @@ anyone finding.
 
 ## How it works
 
-- **`index.php`** — entry point, just includes the two files below.
+- **`index.php`** — entry point, includes the three files below in order.
+- **`_archive/config.php`** — the only file meant to be hand-edited: noindex
+  toggle, timezone, approved extensions, thumbnail width.
 - **`_archive/main.php`** — the `Files` class. Resolves the requested path
   from `?p=`, confines it to this directory, and builds either a directory
   listing (with thumbnails) or a single-file view.
@@ -22,7 +24,7 @@ Only files with an approved extension are shown or linked:
 txt, md, pdf, jpg, jpeg, gif, png, svg, css, js, html, psd, mp4, mov, zip
 ```
 
-(see `$approved_extensions` in `_archive/main.php`). Anything else on disk is
+(see `ARCHIVE_APPROVED_EXTENSIONS` in `_archive/config.php`). Anything else on disk is
 invisible to the app. Files and folders whose name starts with `.` or `_`
 are also skipped in listings — that's how `_archive/` itself, and files like
 `.DS_Store`, stay hidden. Thumbnails (for jpg/png/gif) are generated on
@@ -49,6 +51,37 @@ form.
 - Apache with `mod_rewrite` (the rewrite rules live in the site root
   `.htaccess`, not inside this folder)
 - PHP with the GD extension (for thumbnail generation)
+
+## Deployment — action needed on every server
+
+The site-root `.htaccess` lives **outside this repo** (it's the WordPress
+install's own `.htaccess`, shared with other things on the site), so it
+doesn't travel with a deploy of this folder. Every server this runs on
+needs this checked/added manually.
+
+Without it, a request for an existing file (e.g. `/archive/README.md`)
+gets routed through `index.php` instead of served directly — which renders
+the full page, including a preview `<iframe>` pointing back at that same
+URL, which does the same thing again: infinite nested iframes. (This bit
+us on production after the fix had only been applied locally.)
+
+In the site root's `.htaccess`, immediately before the line
+`RewriteRule ^archive/(.*)$ /archive/index.php?p=$1 [QSA,L]`, there should
+be a block that lets existing files fall through to Apache's normal static
+serving instead of being swallowed by that rewrite:
+
+```apache
+RewriteCond %{REQUEST_URI} ^/archive/(.+)$
+RewriteCond %{REQUEST_URI} !^/archive/_archive/
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_URI} \.(txt|md|pdf|jpe?g|gif|png|svg|css|js|html|psd|mp4|mov|zip)$ [NC]
+RewriteRule ^archive/(.*)$ - [L]
+```
+
+Keep that extension list in sync with `ARCHIVE_APPROVED_EXTENSIONS` in
+`_archive/config.php`. Check this is present any time the archive is
+deployed somewhere new, or if files stop loading / a page starts loading
+itself repeatedly in an iframe.
 
 ## Adding content
 
@@ -79,6 +112,7 @@ archive/
 ├── index.php              entry point
 ├── .gitignore
 ├── _archive/               app internals (blocked from public browsing)
+│   ├── config.php          settings: noindex, timezone, extensions, thumbnail width
 │   ├── main.php            Files class: path resolution, listing, thumbnails
 │   ├── page.php            HTML rendering
 │   ├── styles.css
