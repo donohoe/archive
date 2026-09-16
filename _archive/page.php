@@ -6,7 +6,13 @@ $response = $files->get();
 $html_dir   = array();
 $html_files = array();
 
-// print_r($_SERVER);exit;
+$debug = (isset($_GET['debug'])) ? true : false;
+if ($debug) {
+	print "<pre>";
+	print_r($response);
+	print "</pre>";
+	exit;
+}
 
 ?>
 <!doctype html>
@@ -15,27 +21,21 @@ $html_files = array();
 	<meta charset="UTF-8" />
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
 	<meta http-equiv="content-type" content="text/html;charset=utf-8" />
-	<meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
 	<title>Archive</title>
-	<link rel='stylesheet' href='_archive/styles.css?ver=1.0.1' media='all' />
+	<link rel='stylesheet' href='/<?= $response['base_dir'] ?>_archive/styles.css?ver=1.0.1' media='all' />
 </head>
 <body>
 <div id="page">
 	<header>
 	<?php
 		$html_nav = array();
+
 		if (isset($response['navigation'])) {
 			foreach($response['navigation'] as $item) {
-				if (empty($item['0'])) {
-					$item['1'] = 'archive';
-					$html_nav[] = implode("", array(
-						"<a href=\"/\" class=\"basic\">{$_SERVER['SERVER_NAME']}</a> / <a href=\"./\">{$item['1']}</a>"
-					));
-				} else {
-					$html_nav[] = implode("", array(
-						"<a href=\"?p=/{$item['0']}\">{$item['1']}</a>"
-					));
-				}
+				$html_nav[] = implode("", array(
+					"<a href=\"/", htmlspecialchars($item['0']), "\">", htmlspecialchars($item['1']), "</a>"
+				));
 			}
 		} else {
 			$html_nav[] = 'nothing';
@@ -43,7 +43,7 @@ $html_files = array();
 	?>
 		<div id="navigation">
 			<h1><a href="/archive/">Archive</a></h1>
-			<span>Index of</span>&nbsp;<?php print implode(" / ", $html_nav); ?>
+			<span>Index of</span>&nbsp;<a href="/" class="basic"><?php echo htmlspecialchars($_SERVER['SERVER_NAME']); ?></a> / <?php print implode(" /&nbsp;", $html_nav); ?>
 		</div>
 	</header>
 
@@ -56,7 +56,7 @@ $html_files = array();
 				$custom_class = trim(str_replace(" ", "-", preg_replace("/[^a-zA-Z0-9 ]/", "", $dir['1'])));
 				$html_dir[] = implode("", array(
 					"<li>",
-						"<a href=\"?p={$dir['0']}\" class=\"focusable\">",
+						"<a href=\"/archive/{$dir['0']}\" class=\"focusable\">",
 							"<span class=\"thumbnail dir-$custom_class\"></span>",
 							"<span class=\"label line\">{$dir['1']}</span>",
 						"</a>",
@@ -66,7 +66,6 @@ $html_files = array();
 
 			foreach($response['dir']['files'] as $file) {
 				$thumbnail = (!empty($file['3'])) ? $file['3'] : false;
-
 				if ($thumbnail) {
 					$thumbnail_html = "<img src=\"{$thumbnail}\" style=\"max-height:240px;\">";
 				} else {
@@ -75,7 +74,7 @@ $html_files = array();
 
 				$html_files[] = implode("", array(
 					"<li>",
-						"<a href=\"?p={$file['0']}\" class=\"focusable\">",
+						"<a href=\"{$file['0']}\" class=\"focusable\">",
 							"<div class=\"thumbnail\" style=\"max-height:240px\">",
 								"<div class=\"inner\">",
 									$thumbnail_html,

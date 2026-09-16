@@ -6,10 +6,23 @@ class Files {
 
 	public function __construct() {
 
-		$parentDir = dirname(__DIR__);
-		$this->real_base = realpath($parentDir);
-		$this->path = $this->getPath();
+		$parent_dir         = dirname(__DIR__);
+		$this->base_name    = basename($parent_dir);
+		$this->base_dir     = $this->base_name . DIRECTORY_SEPARATOR;
+		$this->base_path    = realpath($parent_dir) . DIRECTORY_SEPARATOR;
 
+		$this->current_path = $this->getPath();// . DIRECTORY_SEPARATOR;
+		if (empty($this->current_path) || $this->current_path == '/') {
+			$this->current_dir  = $this->base_dir;
+			$this->current_path = $this->base_path;
+		} else {
+			if (is_file($this->current_path)) {
+				$this->current_dir = dirname($this->current_path);
+			} else {
+				$this->current_dir = $this->base_dir . str_replace($this->base_path, '', $this->current_path);	
+			}
+		}
+		
 		$this->approved_extensions = [
 			'txt', 'md', 'pdf',
 			'jpg', 'jpeg', 'gif', 'png', 'svg',
@@ -24,30 +37,51 @@ class Files {
 		$this->thumbnail_width = 360;
 	}
 
+	private function getPath(){
+		$path = isset($_GET['p']) ? $_GET['p'] : './';
+		// $real_base = realpath(__DIR__);
+
+		$real_path = realpath($path ? $this->base_path . DIRECTORY_SEPARATOR . $path : $this->base_path);
+
+		if ($real_path && $this->is_within_base($real_path, $this->base_path)) {
+			return $real_path;
+		} else {
+			return false;
+		}
+	}
+
+	private function is_within_base($path, $base) {
+		return strpos($path, $base) === 0;
+	}
+
 	private function getRelativePath($path) {
-		return str_replace($this->real_base, '', $path);
+		return str_replace(dirname($this->base_path), '', $path);
 	}
 
 	private function getNavigation(){
-		$relative_path = $this->getRelativePath($this->path);
-		//str_replace($this->real_base, '', $this->path);
+		$relative_path = $this->getRelativePath($this->current_path);
+		//str_replace($this->base_path, '', $this->current_path);
 		$breadcrumbs = explode(DIRECTORY_SEPARATOR, trim($relative_path, DIRECTORY_SEPARATOR));
-		$navigaton = array(
-			[ '', 'Home']
-		);
-		$breadcrumb_path = '';
+
+		// $navigaton = array(
+		// 	[ $this->base_dir, $this->base_name ]
+		// );
+		$navigaton = array();
+
+		$path = '';
 		foreach ($breadcrumbs as $crumb) {
 			if ($crumb === '') continue;
-			$breadcrumb_path .= DIRECTORY_SEPARATOR . $crumb;
-			$display_path = ltrim($breadcrumb_path, DIRECTORY_SEPARATOR);
-			$navigaton[] = [ $display_path, $crumb ];
+			$path .= DIRECTORY_SEPARATOR . $crumb;
+			$dir = ltrim($path, DIRECTORY_SEPARATOR);
+			$dir = rtrim($dir, '/') . '/';
+			$navigaton[] = [ $dir, $crumb ];
 		}
 
 		return $navigaton;
 	}
 
 	private function viewFile(){
-		$file_extension = strtolower(pathinfo($this->path, PATHINFO_EXTENSION));
+		$file_extension = strtolower(pathinfo($this->current_path, PATHINFO_EXTENSION));
 		$response = array(
 			'size'     => 0,
 			'size_kb'  => 0,
@@ -60,13 +94,13 @@ class Files {
 		);
 
 		if (in_array($file_extension, $this->approved_extensions)) {
-			$response['size']     = filesize($this->path);
+			$response['size']     = filesize($this->current_path);
 			$response['size_kb']  = number_format($response['size'] / 1024, 0);
-			$response['filename'] = basename($this->path);
-			$response['modified'] = date('M j, Y H:i', filemtime($this->path));
+			$response['filename'] = basename($this->current_path);
+			$response['modified'] = date('M j, Y H:i', filemtime($this->current_path));
 			$response['ext']      = $file_extension;
-			$response['path']     = $this->getRelativePath($this->path);
-			$response['link']     = "/archive" . $response['path'];
+			$response['path']     = $this->getRelativePath($this->current_path);
+			$response['link']     = $response['path'];
 			$response['preview']  = $this->getFilePreview($response);
 		} else {
 			$response['error'] = 'The file extension is not approved';
@@ -82,16 +116,16 @@ class Files {
 			case 'png':
 			case 'gif':
 			case 'svg':
-				$html = "<img src=\".{$attrs['path']}\"/>";
+				$html = "<img src=\"{$attrs['path']}\"/>";
 				break;
 			case 'txt':
 			case 'md':
 			case 'js':
 			case 'css':
-				$html = "<iframe src=\".{$attrs['path']}\"></iframe>";
+				$html = "<iframe src=\"{$attrs['path']}\"></iframe>";
 				break;
 			case 'mp4':
-				$html = "<video controls><source src=\".{$attrs['path']}\" type=\"video/mp4\" /></video>";
+				$html = "<video controls><source src=\"{$attrs['path']}\" type=\"video/mp4\" /></video>";
 				break;
 			default:
 				// throw new Exception('Unsupported image type');
@@ -102,7 +136,7 @@ class Files {
 
 	private function viewDir(){
 
-		$contents = scandir($this->path);
+		$contents = scandir($this->current_path);
 		$directories = [];
 		$files = [];
 
@@ -115,7 +149,7 @@ class Files {
 			if ($item === '.' || $item === '..' || strpos($item, '_') === 0 || strpos($item, '.') === 0) {
 				continue;
 			}
-			$full_path = $this->path . DIRECTORY_SEPARATOR . $item;
+			$full_path = $this->current_path . DIRECTORY_SEPARATOR . $item;
 			if (is_dir($full_path)) {
 				$directories[] = $item;
 			} elseif (is_file($full_path)) {
@@ -127,7 +161,9 @@ class Files {
 		sort($files, SORT_NATURAL | SORT_FLAG_CASE);
 
 		foreach ($directories as $directory) {
-			$relative_dir_path = str_replace($this->real_base, '', $this->path . DIRECTORY_SEPARATOR . $directory);
+			$relative_dir_path = str_replace($this->base_path, '', $this->current_path . DIRECTORY_SEPARATOR . $directory);
+			$relative_dir_path = ltrim($relative_dir_path, '/');
+			$relative_dir_path = rtrim($relative_dir_path, '/') . '/';
 			$response['dirs'][] = [ $relative_dir_path, htmlspecialchars($directory) ];
 		}
 
@@ -136,16 +172,27 @@ class Files {
 			if (in_array($file_extension, $this->approved_extensions)) {
 
 				$thumbnail_path = '';
-				
+				$file_full_path = $this->current_path . DIRECTORY_SEPARATOR . $file;
+
 				if (in_array($file_extension, $this->thumbnail_supported_extensions)) {
 					$thumbnail_path = $this->getThumbnailPath($file);
-					if (!file_exists($thumbnail_path) || filemtime($full_path) > filemtime($thumbnail_path)) {
-						$this->createThumbnail($file, $thumbnail_path);
+					if (!file_exists($thumbnail_path) || filemtime($file_full_path) > filemtime($thumbnail_path)) {
+						try {
+							$this->createThumbnail($file, $thumbnail_path);
+						} catch (\Throwable $e) {
+							$thumbnail_path = '';
+						}
 					}
 				}
 
-				$relative_file_path = str_replace($this->real_base, '', $this->path . DIRECTORY_SEPARATOR . $file);
-				$response['files'][] = [ $relative_file_path, htmlspecialchars($file), $file_extension, $thumbnail_path ];
+				$relative_file_path = str_replace( dirname($this->base_path), '', $this->current_path . DIRECTORY_SEPARATOR . $file );
+
+				$response['files'][] = [ 
+					$relative_file_path, 
+					htmlspecialchars($file), 
+					$file_extension, 
+					($thumbnail_path) ? '/' . $this->base_dir . $thumbnail_path : ''
+				];
 			}
 		}
 
@@ -153,14 +200,28 @@ class Files {
 	}
 
 	public function get() {
-		$response = array();
 
-		if ($this->path !== false) {
+		$response = array(
+			'p'            => isset($_GET['p']) ? $_GET['p'] : '',
+			'base_name'    => $this->base_name,
+			'base_dir'     => $this->base_dir,
+			'base_path'    => $this->base_path,
+			'current_dir'  => $this->current_dir,
+			'current_path' => $this->current_path,
+			'debug'        => array()
+		);
+
+		if (is_file($response['p'])) {
+			$response['debug'][] = 'file';
+		}
+
+		if ($this->current_path !== false) {
 
 			$response['navigation'] = $this->getNavigation();
-			if (is_file($this->path)) {
+
+			if (is_file($this->current_path)) {
 				$response['file'] = $this->viewFile();
-			} elseif (is_dir($this->path)) {
+			} elseif (is_dir($this->current_path)) {
 				$response['dir'] = $this->viewDir();
 			} else {
 				$response['error'] = 'The path is invalid or does not exist';
@@ -170,6 +231,22 @@ class Files {
 			$response['error'] = 'No path parameter provided or invalid path';
 		}
 
+		// if ($this->current_path !== false) {
+
+		// 	$response['navigation'] = $this->getNavigation();
+
+		// 	if (is_file($this->current_path)) {
+		// 		$response['file'] = $this->viewFile();
+		// 	} elseif (is_dir($this->current_path)) {
+		// 		$response['dir'] = $this->viewDir();
+		// 	} else {
+		// 		$response['error'] = 'The path is invalid or does not exist';
+		// 	}
+
+		// } else {
+		// 	$response['error'] = 'No path parameter provided or invalid path';
+		// }
+
 		return $response;
 	}
 
@@ -177,28 +254,11 @@ class Files {
 		return json_encode($file, JSON_PRETTY_PRINT);
 	}
 
-	private function getPath(){
-		$path = isset($_GET['p']) ? $_GET['p'] : './';
-		// $real_base = realpath(__DIR__);
-
-		$real_path = realpath($path ? $this->real_base . DIRECTORY_SEPARATOR . $path : $this->real_base);
-
-		if ($real_path && $this->is_within_base($real_path, $this->real_base)) {
-			return $real_path;
-		} else {
-			return false;
-		}
-	}
-
-	private function is_within_base($path, $base) {
-		return strpos($path, $base) === 0;
-	}
-
 	/* Images */
 
 	private function createThumbnail($file_path, $thumb_path) {
 
-		$file_path = $this->path . DIRECTORY_SEPARATOR . $file_path;
+		$file_path = $this->current_path . DIRECTORY_SEPARATOR . $file_path;
 
 		// print_r($file_path); exit;
 
@@ -218,7 +278,11 @@ class Files {
 			default:
 				throw new Exception('Unsupported image type');
 		}
-	
+
+		if (!$image) {
+			throw new Exception('Unable to read image');
+		}
+
 		$width = imagesx($image);
 		$height = imagesy($image);
 	
@@ -251,10 +315,10 @@ class Files {
 	}
 
 	private function getThumbnailPath($file_path) {
-		$file_path = $this->path . DIRECTORY_SEPARATOR . $file_path;
+		$file_path = $this->current_path . DIRECTORY_SEPARATOR . $file_path;
 		$file_info = pathinfo($file_path);
 		$file_name = $file_info['filename'];
 		$file_extension = $file_info['extension'];
-		return $this->thumbnail_dir . DIRECTORY_SEPARATOR . hash('crc32', $this->path) . '_' . $file_name . '.' . $file_extension;
+		return $this->thumbnail_dir . DIRECTORY_SEPARATOR . hash('crc32', $this->current_path) . '_' . $file_name . '.' . $file_extension;
 	}
 }

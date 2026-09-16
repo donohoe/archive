@@ -1,0 +1,9 @@
+# Internal application files: never list this directory, and never let
+# the PHP source itself be fetched (this folder is excluded from the
+# /archive/ router in the parent .htaccess, so without this it's reachable
+# directly, including Apache's default directory index).
+Options -Indexes
+
+<FilesMatch "\.php$">
+	Require all denied
+</FilesMatch>
