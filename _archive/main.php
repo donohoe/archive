@@ -1,7 +1,5 @@
 <?php
 
-date_default_timezone_set('America/New_York');
-
 class Files {
 
 	private string $base_name;
@@ -33,18 +31,11 @@ class Files {
 			}
 		}
 		
-		$this->approved_extensions = [
-			'txt', 'md', 'pdf',
-			'jpg', 'jpeg', 'gif', 'png', 'svg',
-			'css', 'js', 'html',
-			'psd',
-			'mp4', 'mov',
-			'zip'
-		];
+		$this->approved_extensions = ARCHIVE_APPROVED_EXTENSIONS;
 
 		$this->thumbnail_supported_extensions = ['png', 'jpg', 'jpeg', 'gif'];
 		$this->thumbnail_dir = '_archive/cache';
-		$this->thumbnail_width = 360;
+		$this->thumbnail_width = ARCHIVE_THUMBNAIL_WIDTH;
 	}
 
 	private function getPath(){
