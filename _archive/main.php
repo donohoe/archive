@@ -49,9 +49,18 @@ class Files {
 
 	private function getPath(){
 		$path = isset($_GET['p']) ? $_GET['p'] : './';
-		// $real_base = realpath(__DIR__);
 
-		$real_path = realpath($path ? $this->base_path . DIRECTORY_SEPARATOR . $path : $this->base_path);
+		if (!is_string($path)) {
+			return false;
+		}
+
+		$resolved_path = $this->resolveActualPath($path);
+
+		if ($resolved_path === false) {
+			return false;
+		}
+
+		$real_path = realpath($resolved_path);
 
 		if ($real_path && $this->is_within_base($real_path, $this->base_path)) {
 			return $real_path;
@@ -60,8 +69,66 @@ class Files {
 		}
 	}
 
+	// Folder names are shown/linked in lowercase (see lowercaseDirSegments()),
+	// but the filesystem itself may use mixed case (e.g. "Ad-Prototypes")
+
+	private function resolveActualPath($path) {
+		$path = trim(str_replace('\\', '/', $path), '/');
+		$current = rtrim($this->base_path, DIRECTORY_SEPARATOR);
+
+		if ($path === '' || $path === '.') {
+			return $current;
+		}
+
+		foreach (explode('/', $path) as $segment) {
+			if ($segment === '' || $segment === '.') {
+				continue;
+			}
+			if ($segment === '..' || strpos($segment, '_') === 0 || strpos($segment, '.') === 0) {
+				return false;
+			}
+
+			$candidate = $current . DIRECTORY_SEPARATOR . $segment;
+
+			if (!file_exists($candidate)) {
+				$match = false;
+				foreach ((array) @scandir($current) as $entry) {
+					if ($entry !== '.' && $entry !== '..' && strcasecmp($entry, $segment) === 0) {
+						$match = $entry;
+						break;
+					}
+				}
+				if ($match === false) {
+					return false;
+				}
+				$candidate = $current . DIRECTORY_SEPARATOR . $match;
+			}
+
+			$current = $candidate;
+		}
+
+		return $current;
+	}
+
 	private function is_within_base($path, $base) {
 		return strpos($path, $base) === 0;
+	}
+
+	// Lowercases folder segments of a relative path for display/links, while
+	// leaving a trailing filename segment untouched. $has_filename should be
+	// true whenever the last segment names a file rather than a directory.
+
+	private function lowercaseDirSegments($relative_path, $has_filename = false) {
+		$trailing_slash = (substr($relative_path, -1) === '/');
+		$segments = explode('/', rtrim($relative_path, '/'));
+
+		$file_segment = ($has_filename && !empty($segments)) ? array_pop($segments) : null;
+		$segments = array_map('strtolower', $segments);
+		if ($file_segment !== null) {
+			$segments[] = $file_segment;
+		}
+
+		return implode('/', $segments) . ($trailing_slash ? '/' : '');
 	}
 
 	private function getRelativePath($path) {
@@ -70,20 +137,22 @@ class Files {
 
 	private function getNavigation(){
 		$relative_path = $this->getRelativePath($this->current_path);
-		//str_replace($this->base_path, '', $this->current_path);
 		$breadcrumbs = explode(DIRECTORY_SEPARATOR, trim($relative_path, DIRECTORY_SEPARATOR));
 
-		// $navigaton = array(
-		// 	[ $this->base_dir, $this->base_name ]
-		// );
 		$navigaton = array();
+		$is_current_file = is_file($this->current_path);
+		$crumb_count = count(array_filter($breadcrumbs, fn($crumb) => $crumb !== ''));
 
 		$path = '';
+		$index = 0;
 		foreach ($breadcrumbs as $crumb) {
 			if ($crumb === '') continue;
+			$index++;
 			$path .= DIRECTORY_SEPARATOR . $crumb;
 			$dir = ltrim($path, DIRECTORY_SEPARATOR);
 			$dir = rtrim($dir, '/') . '/';
+			$is_last = ($index === $crumb_count);
+			$dir = $this->lowercaseDirSegments($dir, $is_current_file && $is_last);
 			$navigaton[] = [ $dir, $crumb ];
 		}
 
@@ -109,7 +178,7 @@ class Files {
 			$response['filename'] = basename($this->current_path);
 			$response['modified'] = date('M j, Y H:i', filemtime($this->current_path));
 			$response['ext']      = $file_extension;
-			$response['path']     = $this->getRelativePath($this->current_path);
+			$response['path']     = $this->lowercaseDirSegments($this->getRelativePath($this->current_path), true);
 			$response['link']     = $response['path'];
 			$response['preview']  = $this->getFilePreview($response);
 		} else {
@@ -139,7 +208,7 @@ class Files {
 				break;
 			default:
 				// throw new Exception('Unsupported image type');
-				$html = "<pre>Preview not available. Click <a href=\"/archive{$attrs['path']}\" target=\"_blank\">here</a> to open</pre>";
+				$html = "<pre>Preview not available. Click <a href=\"{$attrs['path']}\" target=\"_blank\">here</a> to open</pre>";
 		}
 		return $html;
 	}
@@ -174,6 +243,7 @@ class Files {
 			$relative_dir_path = str_replace($this->base_path, '', $this->current_path . DIRECTORY_SEPARATOR . $directory);
 			$relative_dir_path = ltrim($relative_dir_path, '/');
 			$relative_dir_path = rtrim($relative_dir_path, '/') . '/';
+			$relative_dir_path = $this->lowercaseDirSegments($relative_dir_path, false);
 			$response['dirs'][] = [ $relative_dir_path, htmlspecialchars($directory) ];
 		}
 
@@ -196,8 +266,9 @@ class Files {
 				}
 
 				$relative_file_path = str_replace( dirname($this->base_path), '', $this->current_path . DIRECTORY_SEPARATOR . $file );
+				$relative_file_path = $this->lowercaseDirSegments($relative_file_path, true);
 
-				$response['files'][] = [ 
+				$response['files'][] = [
 					$relative_file_path, 
 					htmlspecialchars($file), 
 					$file_extension, 
