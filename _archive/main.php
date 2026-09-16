@@ -4,6 +4,16 @@ date_default_timezone_set('America/New_York');
 
 class Files {
 
+	private string $base_name;
+	private string $base_dir;
+	private string $base_path;
+	private string $current_path;
+	private string $current_dir;
+	private array  $approved_extensions;
+	private array  $thumbnail_supported_extensions;
+	private string $thumbnail_dir;
+	private int    $thumbnail_width;
+
 	public function __construct() {
 
 		$parent_dir         = dirname(__DIR__);
@@ -263,6 +273,9 @@ class Files {
 		// print_r($file_path); exit;
 
 		$info = getimagesize($file_path);
+		if ($info === false) {
+			throw new Exception('Unable to read image');
+		}
 		$mime = $info['mime'];
 	
 		switch ($mime) {
