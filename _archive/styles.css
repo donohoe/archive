@@ -38,6 +38,10 @@ body > div {
 	min-height: 100%;
 }
 
+#navigation {
+	text-transform: lowercase;
+}
+
 #navigation,
 #content,
 footer {
