@@ -41,7 +41,8 @@ class Files {
 	private function getPath(){
 		$path = isset($_GET['p']) ? $_GET['p'] : './';
 
-		if (!is_string($path)) {
+		// Null bytes make PHP 8 filesystem functions throw a ValueError
+		if (!is_string($path) || strpos($path, "\0") !== false) {
 			return false;
 		}
 
@@ -180,26 +181,27 @@ class Files {
 
 	private function getFilePreview($attrs) {
 		$html = '';
+		$path = htmlspecialchars($attrs['path'], ENT_QUOTES);
 		switch ($attrs['ext']) {
 			case 'jpeg':
 			case 'jpg':
 			case 'png':
 			case 'gif':
 			case 'svg':
-				$html = "<img src=\"{$attrs['path']}\"/>";
+				$html = "<img src=\"{$path}\"/>";
 				break;
 			case 'txt':
 			case 'md':
 			case 'js':
 			case 'css':
-				$html = "<iframe src=\"{$attrs['path']}\"></iframe>";
+				$html = "<iframe src=\"{$path}\"></iframe>";
 				break;
 			case 'mp4':
-				$html = "<video controls><source src=\"{$attrs['path']}\" type=\"video/mp4\" /></video>";
+				$html = "<video controls><source src=\"{$path}\" type=\"video/mp4\" /></video>";
 				break;
 			default:
 				// throw new Exception('Unsupported image type');
-				$html = "<pre>Preview not available. Click <a href=\"{$attrs['path']}\" target=\"_blank\">here</a> to open</pre>";
+				$html = "<pre>Preview not available. Click <a href=\"{$path}\" target=\"_blank\">here</a> to open</pre>";
 		}
 		return $html;
 	}
@@ -209,6 +211,7 @@ class Files {
 		$contents = scandir($this->current_path);
 		$directories = [];
 		$files = [];
+		$thumbnails_generated = 0;
 
 		$response = array(
 			'dirs'  => array(),
@@ -248,10 +251,16 @@ class Files {
 				if (in_array($file_extension, $this->thumbnail_supported_extensions)) {
 					$thumbnail_path = $this->getThumbnailPath($file);
 					if (!file_exists($thumbnail_path) || filemtime($file_full_path) > filemtime($thumbnail_path)) {
-						try {
-							$this->createThumbnail($file, $thumbnail_path);
-						} catch (\Throwable $e) {
+						if ($thumbnails_generated >= ARCHIVE_THUMBNAIL_MAX_PER_REQUEST) {
+							// Over this request's budget; generate on a later load
 							$thumbnail_path = '';
+						} else {
+							$thumbnails_generated++;
+							try {
+								$this->createThumbnail($file, $thumbnail_path);
+							} catch (\Throwable $e) {
+								$thumbnail_path = '';
+							}
 						}
 					}
 				}
@@ -260,10 +269,13 @@ class Files {
 				$relative_file_path = $this->lowercaseDirSegments($relative_file_path, true);
 
 				$response['files'][] = [
-					$relative_file_path, 
-					htmlspecialchars($file), 
-					$file_extension, 
-					($thumbnail_path) ? '/' . $this->base_dir . $thumbnail_path : ''
+					$relative_file_path,
+					htmlspecialchars($file),
+					$file_extension,
+					($thumbnail_path) ? '/' . $this->base_dir . $thumbnail_path : '',
+					filesize($file_full_path),
+					date('M j, Y H:i', filemtime($file_full_path)),
+					$file // raw name; escape at output
 				];
 			}
 		}
@@ -282,10 +294,6 @@ class Files {
 			'current_path' => $this->current_path,
 			'debug'        => array()
 		);
-
-		if (is_file($response['p'])) {
-			$response['debug'][] = 'file';
-		}
 
 		if ($this->current_path !== false) {
 
@@ -349,6 +357,12 @@ class Files {
 		$mime = ARCHIVE_MIME_TYPES[$extension] ?? 'application/octet-stream';
 
 		header('Content-Type: ' . $mime);
+		header('X-Content-Type-Options: nosniff');
+		header('X-Frame-Options: SAMEORIGIN');
+		header('Referrer-Policy: strict-origin-when-cross-origin');
+		if ($extension === 'html' || $extension === 'svg') {
+			header('Content-Security-Policy: ' . ARCHIVE_SANDBOX_CSP);
+		}
 		header('Content-Length: ' . filesize($this->current_path));
 		readfile($this->current_path);
 
@@ -366,6 +380,11 @@ class Files {
 		$info = getimagesize($file_path);
 		if ($info === false) {
 			throw new Exception('Unable to read image');
+		}
+		// getimagesize() only reads the header, so check dimensions before
+		// GD decodes the full bitmap into memory
+		if ($info[0] < 1 || $info[1] < 1 || ($info[0] * $info[1]) > ARCHIVE_THUMBNAIL_MAX_PIXELS) {
+			throw new Exception('Image dimensions out of range for thumbnailing');
 		}
 		$mime = $info['mime'];
 	
@@ -423,6 +442,7 @@ class Files {
 		$file_info = pathinfo($file_path);
 		$file_name = $file_info['filename'];
 		$file_extension = $file_info['extension'];
-		return $this->thumbnail_dir . DIRECTORY_SEPARATOR . hash('crc32', $this->current_path) . '_' . $file_name . '.' . $file_extension;
+		// Key on a longer hash of the directory so two folders can't collide
+		return $this->thumbnail_dir . DIRECTORY_SEPARATOR . substr(hash('sha256', $this->current_path), 0, 16) . '_' . $file_name . '.' . $file_extension;
 	}
 }

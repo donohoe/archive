@@ -5,7 +5,7 @@ include './_archive/main.php';
 
 $files = new Files;
 
-if (!isset($_GET['debug']) && $files->serveFile()) {
+if (!archive_debug_enabled() && $files->serveFile()) {
 	exit;
 }
 
