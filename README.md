@@ -7,7 +7,7 @@ Everything here is public. Only put things in this folder you're fine with anyon
 ## How it works
 
 - **`index.php`** — entry point, includes the three files below in order.
-- **`_archive/config.php`** — the only file meant to be hand-edited: noindex toggle, timezone, approved extensions, thumbnail width.
+- **`_archive/config.php`** — the only file meant to be hand-edited: noindex toggle, timezone, approved extensions, file viewer on/off, thumbnail width and limits.
 - **`_archive/main.php`** — the `Files` class. Resolves the requested path from `?p=`, confines it to this directory, and builds either a directory listing (with thumbnails) or a single-file view.
 - **`_archive/page.php`** — renders the HTML around whatever `Files::get()` returns (breadcrumbs, grid of folders/files, or a file preview).
 
